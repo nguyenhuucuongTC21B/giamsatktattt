@@ -25,7 +25,7 @@ func getLANConfig() LANConfigResult {
 	out := LANConfigResult{}
 
 	// 1. SMBv1
-	cmd := exec.Command("powershell", "-NoProfile", "-Command",
+	cmd := hideWindowCmd("powershell", "-NoProfile", "-Command",
 		"try{(Get-SmbServerConfiguration -ErrorAction Stop).EnableSMB1Protocol}catch{'ERR'}")
 	var stdout bytes.Buffer
 	cmd.Stdout = &stdout
@@ -41,7 +41,7 @@ func getLANConfig() LANConfigResult {
 	}
 
 	// 2. LLMNR
-	cmd2 := exec.Command("reg", "query",
+	cmd2 := hideWindowCmd("reg", "query",
 		`HKLM\Software\Policies\Microsoft\Windows NT\DNSClient`, "/v", "TurnOffMulticast")
 	var stdout2 bytes.Buffer
 	cmd2.Stdout = &stdout2
@@ -54,7 +54,7 @@ func getLANConfig() LANConfigResult {
 	}
 
 	// 3. NetBIOS
-	cmd3 := exec.Command("powershell", "-NoProfile", "-Command",
+	cmd3 := hideWindowCmd("powershell", "-NoProfile", "-Command",
 		`Get-ChildItem 'HKLM:\SYSTEM\CurrentControlSet\Services\NetBT\Parameters\Interfaces' | ForEach-Object { (Get-ItemProperty $_.PSPath -ErrorAction SilentlyContinue).NetbiosOptions }`)
 	var stdout3 bytes.Buffer
 	cmd3.Stdout = &stdout3

@@ -1,5 +1,6 @@
 // Package secretscan - keywords.go
 // Danh sách từ khóa nhận diện văn bản Mật/Bí mật/Tuyệt mật
+// Xây dựng dựa trên Luật Bảo vệ bí mật nhà nước và quy định VKSNDTC
 // File pure-string ĐA NỀN TẢNG (build được cả windows và non-windows)
 package secretscan
 
@@ -11,61 +12,149 @@ type SecretKeyword struct {
 	Classification string // MẬT | BÍ MẬT | TUYỆT MẬT | NGHI VẤN
 }
 
-// Danh sách từ khóa nhận diện văn bản Mật
+// Danh sách 59+ từ khóa độ mật ngành Kiểm sát
+// Dựa trên Luật Bảo vệ bí mật nhà nước và quy định VKSNDTC
 var secretKeywords = []SecretKeyword{
-	// Mật
-	{"mật", "MẬT"},
-	{"tài liệu mật", "MẬT"},
-	{"văn bản mật", "MẬT"},
-	{"tài liệu mậu", "MẬT"},
-	{"mậu mật", "MẬT"},
-	{"độ mật", "MẬT"},
-
-	// Bí mật
-	{"bí mật", "BÍ MẬT"},
-	{"bi mat", "BÍ MẬT"},
-	{"bimat", "BÍ MẬT"},
-	{"tài liệu bí mật", "BÍ MẬT"},
-	{"văn bản bí mật", "BÍ MẬT"},
-
-	// Tuyệt mật
+	// === NHÓM 1: Định danh độ mật chính thức (12 từ) ===
 	{"tuyệt mật", "TUYỆT MẬT"},
 	{"tuyet mat", "TUYỆT MẬT"},
 	{"tuyetmat", "TUYỆT MẬT"},
-	{"tài liệu tuyệt mật", "TUYỆT MẬT"},
+	{"tối mật", "TUYỆT MẬT"},
+	{"toi mat", "TUYỆT MẬT"},
+	{"toimat", "TUYỆT MẬT"},
+	{"mật", "MẬT"},
+	{"bí mật", "BÍ MẬT"},
+	{"bi mat", "BÍ MẬT"},
+	{"bimat", "BÍ MẬT"},
+	{"tài liệu mật", "MẬT"},
+	{"văn bản mật", "MẬT"},
+	{"độ mật", "MẬT"},
+	{"bí mật nhà nước", "TUYỆT MẬT"},
+	{"bi mat nha nuoc", "TUYỆT MẬT"},
+	{"bí mật công tác", "BÍ MẬT"},
+	{"hồ sơ mật", "MẬT"},
+	{"tin mật", "MẬT"},
+	{"án mật", "MẬT"},
+	{"mậu mật", "MẬT"},
+	{"tài liệu mậu", "MẬT"},
 
-	// Cao truyền / Nội bộ
-	{"cao truyền", "NGHI VẤN"},
-	{"cao truyen", "NGHI VẤN"},
-	{"nội bộ", "NGHI VẤN"},
-	{"noi bo", "NGHI VẤN"},
+	// === NHÓM 2: Cơ quan, nghiệp vụ cơ yếu và mã hóa (11 từ) ===
+	{"ban cơ yếu", "BÍ MẬT"},
+	{"ban co yeu", "BÍ MẬT"},
+	{"cơ yếu", "BÍ MẬT"},
+	{"co yeu", "BÍ MẬT"},
+	{"mã dịch", "BÍ MẬT"},
+	{"ma dich", "BÍ MẬT"},
+	{"điện mật", "MẬT"},
+	{"dien mat", "MẬT"},
+	{"giải mã", "BÍ MẬT"},
+	{"giai ma", "BÍ MẬT"},
+	{"khóa mã", "BÍ MẬT"},
+	{"khoa ma", "BÍ MẬT"},
+	{"mật mã", "BÍ MẬT"},
+	{"mat ma", "BÍ MẬT"},
+	{"sản phẩm mật mã", "BÍ MẬT"},
+	{"điện mã", "MẬT"},
+	{"dien ma", "MẬT"},
+	{"điện cơ yếu", "BÍ MẬT"},
+	{"dien co yeu", "BÍ MẬT"},
+	{"trưởng ban cơ yếu", "TUYỆT MẬT"},
+	{"truong ban co yeu", "TUYỆT MẬT"},
+
+	// === NHÓM 3: Tin tức nghiệp vụ kiểm sát, điều tra (20 từ) ===
+	{"tin an ninh quốc gia", "TUYỆT MẬT"},
+	{"tin an ninh quoc gia", "TUYỆT MẬT"},
+	{"chống phản động", "TUYỆT MẬT"},
+	{"chong phan dong", "TUYỆT MẬT"},
+	{"gián điệp", "TUYỆT MẬT"},
+	{"gian diep", "TUYỆT MẬT"},
+	{"khủng bố", "TUYỆT MẬT"},
+	{"khung bo", "TUYỆT MẬT"},
+	{"xâm phạm an ninh", "TUYỆT MẬT"},
+	{"xam pham an ninh", "TUYỆT MẬT"},
+	{"bí mật điều tra", "TUYỆT MẬT"},
+	{"bi mat dieu tra", "TUYỆT MẬT"},
+	{"kế hoạch điều tra", "TUYỆT MẬT"},
+	{"ke hoach dieu tra", "TUYỆT MẬT"},
+	{"biện pháp điều tra", "TUYỆT MẬT"},
+	{"bien phap dieu tra", "TUYỆT MẬT"},
+	{"điều tra đặc biệt", "TUYỆT MẬT"},
+	{"dieu tra dac biet", "TUYỆT MẬT"},
+	{"trinh sát", "TUYỆT MẬT"},
+	{"trinh sat", "TUYỆT MẬT"},
+	{"biện pháp trinh sát", "TUYỆT MẬT"},
+	{"bien phap trinh sat", "TUYỆT MẬT"},
+	{"người tố giác", "TUYỆT MẬT"},
+	{"nguoi to giao", "TUYỆT MẬT"},
+	{"người báo tin", "TUYỆT MẬT"},
+	{"nguoi bao tin", "TUYỆT MẬT"},
+	{"bảo vệ người làm chứng", "TUYỆT MẬT"},
+	{"bao ve nguoi lam chung", "TUYỆT MẬT"},
+	{"danh tính nhân chứng", "TUYỆT MẬT"},
+	{"danh tinh nhan chung", "TUYỆT MẬT"},
+	{"kế hoạch bắt", "TUYỆT MẬT"},
+	{"ke hoach bat", "TUYỆT MẬT"},
+	{"khám xét khẩn cấp", "TUYỆT MẬT"},
+	{"kham xet khan cap", "TUYỆT MẬT"},
+	{"bắt khẩn cấp", "TUYỆT MẬT"},
+	{"bat khan cap", "TUYỆT MẬT"},
+	{"vụ án đặc biệt nghiêm trọng", "TUYỆT MẬT"},
+	{"vu an dac biet nghiem trong", "TUYỆT MẬT"},
+	{"phương án tác chiến", "TUYỆT MẬT"},
+	{"phuong an tac chien", "TUYỆT MẬT"},
+
+	// === NHÓM 4: Quyết định nội bộ, nhân sự và thanh tra (16 từ) ===
+	{"nhân sự xét duyệt", "MẬT"},
+	{"nhan su xet duyet", "MẬT"},
+	{"quy hoạch cán bộ", "MẬT"},
+	{"quy hoach can bo", "MẬT"},
+	{"kết luận thanh tra", "MẬT"},
+	{"ket luan thanh tra", "MẬT"},
+	{"hồ sơ nhân sự", "MẬT"},
+	{"ho so nhan su", "MẬT"},
+	{"kỷ luật nội bộ", "MẬT"},
+	{"ky luat noi bo", "MẬT"},
+	{"nguồn tin nội bộ", "MẬT"},
+	{"nguon tin noi bo", "MẬT"},
+	{"báo cáo chuyên đề an ninh", "MẬT"},
+	{"bao cao chuyen de an ninh", "MẬT"},
+	{"đề án tổ chức", "MẬT"},
+	{"de an to chuc", "MẬT"},
+	{"dự thảo nghị quyết", "MẬT"},
+	{"du thao nghi quyet", "MẬT"},
+	{"văn bản nội bộ", "NGHI VẤN"},
+	{"van ban noi bo", "NGHI VẤN"},
+	{"chỉ đạo của viện trưởng", "MẬT"},
+	{"chi dao cua vien truong", "MẬT"},
+	{"kết luận nội dung tố cáo", "MẬT"},
+	{"ket luan noi dung to cao", "MẬT"},
+	{"xử lý cán bộ", "MẬT"},
+	{"xu ly can bo", "MẬT"},
+	{"tài liệu chưa công bố", "MẬT"},
+	{"tai lieu chua cong bo", "MẬT"},
+	{"văn bản lưu hành nội bộ", "MẬT"},
+	{"van ban luu hanh noi bo", "MẬT"},
+	{"bí mật công nghệ thông tin", "BÍ MẬT"},
+	{"bi mat cong nghe thong tin", "BÍ MẬT"},
+
+	// === Bổ sung thêm: Các từ khóa phụ trợ ===
 	{"chỉ thị", "NGHI VẤN"},
 	{"chi thi", "NGHI VẤN"},
-
-	// Quyết định / Lệnh
 	{"quyết định", "NGHI VẤN"},
 	{"quyet dinh", "NGHI VẤN"},
 	{"lệnh điều động", "NGHI VẤN"},
 	{"lenh dieu dong", "NGHI VẤN"},
-
-	// An ninh / Cơ yếu
-	{"ban cơ yếu", "NGHI VẤN"},
-	{"ban co yeu", "NGHI VẤN"},
 	{"an ninh mạng", "NGHI VẤN"},
 	{"an ninh mang", "NGHI VẤN"},
 	{"giám sát an ninh", "NGHI VẤN"},
-
-	// Khác
 	{"không phổ biến", "NGHI VẤN"},
 	{"khong pho bien", "NGHI VẤN"},
 	{"hạn chế phổ biến", "NGHI VẤN"},
 	{"hạn chế lưu hành", "NGHI VẤN"},
 	{"chỉ đạo", "NGHI VẤN"},
 	{"triển khai", "NGHI VẤN"},
-
-	// Mark of web/classification headers
 	{"classified", "NGHI VẤN"},
-	{"confidential", "NGHI VẤN"},
+	{"confidential", "BÍ MẬT"},
 	{"top secret", "TUYỆT MẬT"},
 	{"secret", "BÍ MẬT"},
 	{"restricted", "NGHI VẤN"},
@@ -81,7 +170,7 @@ func MatchKeywords(content string) (classification string, matched []string, cou
 	lower := strings.ToLower(content)
 	maxClassification := ""
 	classificationRank := map[string]int{
-		"":         0,
+		"":          0,
 		"NGHI VẤN": 1,
 		"MẬT":      2,
 		"BÍ MẬT":   3,
@@ -94,7 +183,6 @@ func MatchKeywords(content string) (classification string, matched []string, cou
 		kwLower := strings.ToLower(kw.Word)
 		idx := strings.Index(lower, kwLower)
 		if idx >= 0 {
-			// Đếm số lần xuất hiện
 			c := 0
 			searchFrom := 0
 			for {
@@ -105,14 +193,16 @@ func MatchKeywords(content string) (classification string, matched []string, cou
 				c++
 				searchFrom += i + len(kwLower)
 				if c > 100 {
-					break // giới hạn
+					break
 				}
 			}
 
-			matched = append(matched, kw.Word)
+			if !seen[kw.Word] {
+				matched = append(matched, kw.Word)
+				seen[kw.Word] = true
+			}
 			count += c
 
-			// Lấy snippet (đoạn văn xung quanh từ khóa đầu tiên)
 			if snippet == "" && idx >= 0 {
 				start := idx - 50
 				if start < 0 {
@@ -131,12 +221,9 @@ func MatchKeywords(content string) (classification string, matched []string, cou
 				}
 			}
 
-			// Cập nhật classification cao nhất
 			if classificationRank[kw.Classification] > classificationRank[maxClassification] {
 				maxClassification = kw.Classification
 			}
-
-			seen[kw.Word] = true
 		}
 	}
 

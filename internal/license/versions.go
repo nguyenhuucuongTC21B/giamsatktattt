@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -229,7 +228,7 @@ func formatCVEReport(cves []CVEInfo) string {
 
 // runCMD chạy command và trả về output
 func runCMD(name string, args ...string) string {
-	cmd := exec.Command(name, args...)
+	cmd := hideWindowCmd(name, args...)
 	var out bytes.Buffer
 	cmd.Stdout = &out
 	cmd.Stderr = &out

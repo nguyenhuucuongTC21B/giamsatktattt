@@ -4,7 +4,6 @@ package network
 
 import (
         "bytes"
-        "os/exec"
         "regexp"
         "strings"
         "time"
@@ -31,7 +30,7 @@ var blacklistedDomains = []string{
 func getDNSCache() DNSCacheResult {
         out := DNSCacheResult{}
 
-        cmd := exec.Command("ipconfig", "/displaydns")
+        cmd := hideWindowCmd("ipconfig", "/displaydns")
         var stdout bytes.Buffer
         cmd.Stdout = &stdout
 

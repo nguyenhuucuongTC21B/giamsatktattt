@@ -91,7 +91,7 @@ func getInstalledSoftwareViaWMIC() []string {
 	// Code fallback cũ (để tham khảo, không chạy trong logic chính)
 	// Nếu muốn dùng, uncomment:
 	/*
-		cmd := exec.Command("wmic", "product", "get", "name,version", "/format:csv")
+		cmd := hideWindowCmd("wmic", "product", "get", "name,version", "/format:csv")
 		var stdout, stderr bytes.Buffer
 		cmd.Stdout = &stdout
 		cmd.Stderr = &stderr

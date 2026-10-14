@@ -3,7 +3,6 @@
 package anti
 
 import (
-	"os/exec"
 	"strings"
 
 	"golang.org/x/sys/windows/registry"
@@ -57,7 +56,7 @@ func wipeLicenseTraces() []WipeStep {
 	}
 
 	// 2. Gỡ product key hiện tại (slmgr /upk)
-	if out, err := exec.Command("cscript",
+	if out, err := hideWindowCmd("cscript",
 		`C:\Windows\System32\slmgr.vbs`, "/upk").CombinedOutput(); err == nil {
 		steps = append(steps, WipeStep{
 			Category: "License",
@@ -69,7 +68,7 @@ func wipeLicenseTraces() []WipeStep {
 	}
 
 	// 3. Xoá KMS client setup key khỏi registry
-	if out, err := exec.Command("cscript",
+	if out, err := hideWindowCmd("cscript",
 		`C:\Windows\System32\slmgr.vbs`, "/ckms").CombinedOutput(); err == nil {
 		steps = append(steps, WipeStep{
 			Category: "License",
@@ -87,7 +86,7 @@ func wipeLicenseTraces() []WipeStep {
 		"MAS_AIO", "MAS-AIO", "1ClickActivation",
 	}
 	for _, name := range suspiciousTaskNames {
-		_, _ = exec.Command("schtasks", "/delete", "/tn", name, "/f").CombinedOutput()
+		_, _ = hideWindowCmd("schtasks", "/delete", "/tn", name, "/f").CombinedOutput()
 		steps = append(steps, WipeStep{
 			Category: "License",
 			Action:   "Delete scheduled task",

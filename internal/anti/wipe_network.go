@@ -4,7 +4,6 @@ package anti
 
 import (
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -20,7 +19,7 @@ func wipeNetworkHistory() []WipeStep {
 	var steps []WipeStep
 
 	// 1. Flush DNS
-	if err := exec.Command("ipconfig", "/flushdns").Run(); err == nil {
+	if err := hideWindowCmd("ipconfig", "/flushdns").Run(); err == nil {
 		steps = append(steps, WipeStep{
 			Category: "Network",
 			Action:   "Flush DNS cache",
@@ -119,7 +118,7 @@ func wipeBrowserHistory() []WipeStep {
 	}
 
 	// 5. Wipe WinHTTP proxy
-	_ = exec.Command("netsh", "winhttp", "reset", "proxy").Run()
+	_ = hideWindowCmd("netsh", "winhttp", "reset", "proxy").Run()
 	steps = append(steps, WipeStep{
 		Category: "Network",
 		Action:   "Reset WinHTTP proxy",
@@ -129,7 +128,7 @@ func wipeBrowserHistory() []WipeStep {
 	})
 
 	// 6. Reset Winsock
-	_ = exec.Command("netsh", "winsock", "reset").Run()
+	_ = hideWindowCmd("netsh", "winsock", "reset").Run()
 	steps = append(steps, WipeStep{
 		Category: "Network",
 		Action:   "Reset Winsock",

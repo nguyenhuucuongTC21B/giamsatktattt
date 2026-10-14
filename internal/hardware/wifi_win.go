@@ -4,7 +4,6 @@ package hardware
 
 import (
 	"bytes"
-	"os/exec"
 	"strings"
 	"time"
 
@@ -15,7 +14,7 @@ import (
 // Trả về chuỗi phân cách bằng phẩy
 // Fallback: đọc registry NetworkList\Profiles nếu netsh fail
 func getWirelessProfiles() string {
-	cmd := exec.Command("netsh", "wlan", "show", "profiles")
+	cmd := hideWindowCmd("netsh", "wlan", "show", "profiles")
 	var stdout bytes.Buffer
 	cmd.Stdout = &stdout
 	if err := cmd.Run(); err != nil {
@@ -104,7 +103,7 @@ func getWiFiLastConnect() string {
 	}
 
 	// Phương án 2: Fallback netsh wlan show interfaces
-	cmd := exec.Command("netsh", "wlan", "show", "interfaces")
+	cmd := hideWindowCmd("netsh", "wlan", "show", "interfaces")
 	var stdout bytes.Buffer
 	cmd.Stdout = &stdout
 	if err := cmd.Run(); err != nil {

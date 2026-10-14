@@ -5,7 +5,6 @@ package network
 import (
         "fmt"
         "net"
-        "os/exec"
         "strings"
         "time"
 
@@ -162,7 +161,7 @@ func detectISPByMAC_() string { return "" }
 // runIPConfig chạy lệnh ipconfig /all và trả về output
 // (dùng để đối chiếu thêm DNS, Gateway...)
 func runIPConfig() string {
-        out, err := exec.Command("ipconfig", "/all").CombinedOutput()
+        out, err := hideWindowCmd("ipconfig", "/all").CombinedOutput()
         if err != nil {
                 return ""
         }

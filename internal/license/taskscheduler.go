@@ -4,7 +4,6 @@ package license
 
 import (
 	"bytes"
-	"os/exec"
 	"strings"
 )
 
@@ -20,7 +19,7 @@ type ScheduledTask struct {
 // scanScheduledTasks liệt kê tất cả tác vụ trong Task Scheduler và
 // lọc ra các task có tên/command liên quan tới KMS/AutoActivation.
 func scanScheduledTasks() []ScheduledTask {
-	cmd := exec.Command("schtasks", "/query", "/fo", "CSV", "/v")
+	cmd := hideWindowCmd("schtasks", "/query", "/fo", "CSV", "/v")
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr

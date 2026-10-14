@@ -4,7 +4,6 @@ package hardware
 
 import (
 	"bytes"
-	"os/exec"
 	"regexp"
 	"strings"
 	"time"
@@ -41,7 +40,7 @@ func scanPeripheralSessions() map[string][]ConnectSession {
 func queryKernelPnPSessions() map[string][]ConnectSession {
 	out := map[string][]ConnectSession{}
 
-	cmd := exec.Command("wevtutil", "qe", "Microsoft-Windows-Kernel-PnP/Operational",
+	cmd := hideWindowCmd("wevtutil", "qe", "Microsoft-Windows-Kernel-PnP/Operational",
 		"/q:*[System[(EventID=20001 or EventID=20002)]]",
 		"/c:100", "/rd:true", "/f:text")
 	var stdout bytes.Buffer
@@ -120,7 +119,7 @@ func parseKernelPnPEventLog(content string) map[string][]ConnectSession {
 func parseSetupAPILog() map[string][]ConnectSession {
 	out := map[string][]ConnectSession{}
 
-	cmd := exec.Command("powershell", "-NoProfile", "-Command",
+	cmd := hideWindowCmd("powershell", "-NoProfile", "-Command",
 		`Get-Content 'C:\Windows\inf\setupapi.dev.log' -Tail 500 -ErrorAction SilentlyContinue`)
 	var stdout bytes.Buffer
 	cmd.Stdout = &stdout
