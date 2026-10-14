@@ -3,6 +3,7 @@ package main
 import (
         "context"
         "embed"
+        "fmt"
         "log"
         "os"
         "path/filepath"
@@ -142,31 +143,45 @@ func (a *App) ScanAll() (*ScanResult, error) {
         a.emitProgress("hardware", "Đang kiểm kê card mạng & Wi-Fi (dự kiến 1-5s)...", 40)
         a.emitProgress("peripheral", "Đang trích xuất lịch sử USB (dự kiến 1-8s)...", 55)
         a.emitProgress("malware", "Đang giám định mã độc & keylogger (dự kiến 3-20s)...", 75)
+        a.emitProgress("secretdoc", "Đang rà quét văn bản Mật (dự kiến 5-30s)...", 85)
 
         out := &ScanResult{}
         var wg sync.WaitGroup
 
-        // scanGroup chạy một nhóm quét với timeout "mềm" 180 giây
-        // Nếu quá 180s, emit progress "slow" để UI thông báo cho user,
-        // NHƯNG VẪN CHỜ goroutine hoàn tất để đảm bảo kết quả đầy đủ
-        // (tránh race condition: kết quả rỗng ở lần quét đầu)
+        // scanGroup chạy một nhóm quét với timeout "mềm" 120 giây
+        // Có defer recover() để chống crash toàn app nếu 1 nhóm panic
         scanGroup := func(wg *sync.WaitGroup, groupID, doneMsg string, percent int, fn func() error) {
                 defer wg.Done()
+                defer func() {
+                        if r := recover(); r != nil {
+                                a.writeAuditLog("PANIC", "Nhóm "+groupID+" panic: "+fmt.Sprintf("%v", r))
+                                a.emitProgress(groupID+"_panic", "⚠ Nhóm "+groupID+" lỗi, bỏ qua", percent)
+                        }
+                }()
                 done := make(chan struct{})
                 go func() {
                         defer close(done)
+                        defer func() {
+                                if r := recover(); r != nil {
+                                        a.writeAuditLog("PANIC_INNER", "Nhóm "+groupID+" inner panic: "+fmt.Sprintf("%v", r))
+                                }
+                        }()
                         _ = fn()
                 }()
                 select {
                 case <-done:
                         a.emitProgress(groupID+"_done", doneMsg, percent)
-                case <-time.After(180 * time.Second):
-                        // Phát cảnh báo "đang chạy lâu" - KHÔNG return
-                        a.emitProgress(groupID+"_slow", "⚠ Nhóm "+groupID+" đang chạy lâu (>180s), vui lòng chờ...", percent)
-                        a.writeAuditLog("SCAN_SLOW", "Nhóm "+groupID+" chạy lâu hơn 180s, vẫn đang chờ")
-                        // CHỜ goroutine hoàn tất để có kết quả đầy đủ
-                        <-done
-                        a.emitProgress(groupID+"_done", "✓ "+groupID+" hoàn tất (chậm)", percent)
+                case <-time.After(120 * time.Second):
+                        a.emitProgress(groupID+"_slow", "⚠ Nhóm "+groupID+" đang chạy lâu (>120s), vui lòng chờ...", percent)
+                        a.writeAuditLog("SCAN_SLOW", "Nhóm "+groupID+" chạy lâu hơn 120s")
+                        // CHỜ thêm tối đa 60s rồi bỏ qua nếu仍未 xong
+                        select {
+                        case <-done:
+                                a.emitProgress(groupID+"_done", "✓ "+groupID+" hoàn tất (chậm)", percent)
+                        case <-time.After(60 * time.Second):
+                                a.emitProgress(groupID+"_timeout", "⚠ Nhóm "+groupID+" timeout, bỏ qua", percent)
+                                a.writeAuditLog("SCAN_TIMEOUT", "Nhóm "+groupID+" timeout sau 180s, bỏ qua")
+                        }
                 }
         }
 
