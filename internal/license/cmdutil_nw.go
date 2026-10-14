@@ -1,9 +1,0 @@
-//go:build !windows
-
-package license
-
-import "os/exec"
-
-func hideWindowCmd(name string, args ...string) *exec.Cmd {
-	return exec.Command(name, args...)
-}
