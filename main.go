@@ -73,6 +73,7 @@ type ScanResult struct {
         Bang5 []malware.MalwareRecord       `json:"bang5"`
         Bang6 []secretscan.SecretDocRecord  `json:"bang6"`
         Stats ScanStats                     `json:"stats"`
+	ScannedDirs []secretscan.ScannedDir `json:"scanned_dirs"`
 }
 
 // ScanStats là số liệu tóm tắt để hiển thị trên dashboard
@@ -209,6 +210,7 @@ func (a *App) ScanAll() (*ScanResult, error) {
         go scanGroup(&wg, "secretdoc", "✓ Hoân tất rà quét văn bản Mật", 95, func() error {
                 secretResult := secretscan.ScanSecretDocs()
                 out.Bang6 = secretResult.Records
+		out.ScannedDirs = secretResult.ScannedDirs
                 return nil
         })
         wg.Wait()
