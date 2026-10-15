@@ -340,7 +340,25 @@ function formatDangerLevel(level) {
 function renderBang6(records) {
   const tbody = document.getElementById('bang6');
   if (!records || records.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="10" class="empty-row">Không phát hiện văn bản Mật/Bí mật.</td></tr>';
+    // Hiển thị thư mục đã quét ngay cả khi không có kết quả
+    let dirsHtml = '';
+    if (lastResult && lastResult.scanned_dirs && lastResult.scanned_dirs.length > 0) {
+      dirsHtml = '<div style="padding:16px;background:#FAF5E6;border-left:4px solid #C9A961;margin:8px 0;">';
+      dirsHtml += '<h3 style="color:#631017;margin-bottom:8px;">📁 DANH SÁCH Ổ ĐĨA ĐÃ QUÉT</h3>';
+      dirsHtml += '<table style="width:100%;font-size:12px;border-collapse:collapse;">';
+      dirsHtml += '<tr style="background:#631017;color:#C9A961;"><th style="padding:6px;">Ổ đĩa</th><th>Số file quét</th><th>Số file Mật</th></tr>';
+      lastResult.scanned_dirs.forEach(d => {
+        const matchColor = d.match_count > 0 ? 'color:#8B0000;font-weight:700;' : 'color:#2d7a3e;';
+        dirsHtml += `<tr style="border-bottom:1px solid #ddd;"><td style="padding:6px;" class="cell-mono">${escapeHtml(d.path)}</td><td style="text-align:center;">${d.file_count}</td><td style="text-align:center;${matchColor}">${d.match_count}</td></tr>`;
+      });
+      dirsHtml += '</table>';
+      if (lastResult.stats && lastResult.stats.secret_docs === 0) {
+        dirsHtml += '<p style="margin-top:10px;color:#666;font-size:11px;">⚠ Không phát hiện văn bản Mật. Có thể file .docx/.pdf của bạn không chứa từ khóa trong danh sách, hoặc file nằm trong thư mục hệ thống bị bỏ qua.</p>';
+        dirsHtml += '<p style="font-size:11px;color:#888;">📝 Log chi tiết: <span class="cell-mono">%USERPROFILE%\\.bcy-vks\\logs\\secretscan.log</span></p>';
+      }
+      dirsHtml += '</div>';
+    }
+    tbody.innerHTML = `<tr><td colspan="10" style="padding:0;">${dirsHtml || '<div class="empty-row">Không phát hiện văn bản Mật/Bí mật.</div>'}</td></tr>`;
     document.getElementById('count-bang6').textContent = '0 mục';
     return;
   }
