@@ -70,6 +70,9 @@ func ScanSecretDocs() SecretScanResult {
                         fmt.Fprintf(debugLog, "\n=== Quét ổ: %s ===\n", root.Path)
                 }
 
+                dirFileCount := 0
+                dirMatchCount := 0
+
                 filepath.WalkDir(root.Path, func(p string, d os.DirEntry, err error) error {
                         if err != nil || d == nil {
                                 return nil
@@ -108,6 +111,7 @@ func ScanSecretDocs() SecretScanResult {
 
                         fileCount++
                         result.TotalFiles++
+                        dirFileCount++
 
                         if debugLog != nil {
                                 fmt.Fprintf(debugLog, "Scanning: %s (%d bytes, ext=%s)\n", p, info.Size(), ext)
@@ -168,6 +172,7 @@ func ScanSecretDocs() SecretScanResult {
 
                         result.Records = append(result.Records, rec)
                         result.TotalMatches++
+                        dirMatchCount++
 
                         switch rec.DangerLevel {
                         case "CRITICAL":
@@ -178,7 +183,21 @@ func ScanSecretDocs() SecretScanResult {
 
                         return nil
                 })
+
+                // Ghi nhận thư mục đã quét
+                result.ScannedDirs = append(result.ScannedDirs, ScannedDir{
+                        Path:       root.Path,
+                        FileCount:  dirFileCount,
+                        MatchCount: dirMatchCount,
+                })
+
+                if debugLog != nil {
+                        fmt.Fprintf(debugLog, "Ổ %s: %d file scanned, %d matches\n",
+                                root.Path, dirFileCount, dirMatchCount)
+                }
         }
+
+        result.LogFilePath = logFile
 
         var sb strings.Builder
         sb.WriteString(fmt.Sprintf("Quét %d file trên %d ổ đĩa, phát hiện %d văn bản Mật/Bí mật",

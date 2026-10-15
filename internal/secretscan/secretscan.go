@@ -1,30 +1,35 @@
-// Package secretscan chứa logic rà quét sâu văn bản Word/PDF
-// phát hiện nội dung chứa từ khóa "Mật", "Bí mật", "Tuyệt mật"
-//
-// API chính: ScanSecretDocs() -> []SecretDocRecord (Bảng VI)
 package secretscan
 
-// SecretDocRecord tương ứng BẢNG VI trong đặc tả đầu ra.
+// SecretDocRecord tương ứng BẢNG VI
 type SecretDocRecord struct {
-	FilePath       string `json:"file_path"`         // Đường dẫn đầy đủ
-	FileName       string `json:"file_name"`         // Tên file
-	FileType       string `json:"file_type"`         // .docx | .doc | .pdf | .xlsx | .pptx
-	FileSize       int64  `json:"file_size"`         // Kích thước (bytes)
-	ModifiedDate   string `json:"modified_date"`     // Ngày sửa đổi
-	Classification string `json:"classification"`    // MẬT | BÍ MẬT | TUYỆT MẬT | NGHI VẤN
-	MatchedKeywords string `json:"matched_keywords"` // Các từ khóa phát hiện
-	KeywordCount   int    `json:"keyword_count"`     // Số lần xuất hiện
-	Snippet        string `json:"snippet"`           // Đoạn văn bản xung quanh từ khóa
-	Location       string `json:"location"`          // Desktop | Documents | Downloads | USB
-	DangerLevel    string `json:"danger_level"`      // CRITICAL | HIGH | MEDIUM
+	FilePath        string `json:"file_path"`
+	FileName        string `json:"file_name"`
+	FileType        string `json:"file_type"`
+	FileSize        int64  `json:"file_size"`
+	ModifiedDate    string `json:"modified_date"`
+	Classification  string `json:"classification"`
+	MatchedKeywords string `json:"matched_keywords"`
+	KeywordCount    int    `json:"keyword_count"`
+	Snippet         string `json:"snippet"`
+	Location        string `json:"location"`
+	DangerLevel     string `json:"danger_level"`
+}
+
+// ScannedDir chứa thông tin thư mục đã quét
+type ScannedDir struct {
+	Path       string `json:"path"`
+	FileCount  int    `json:"file_count"`
+	MatchCount int    `json:"match_count"`
 }
 
 // SecretScanResult chứa kết quả tổng hợp
 type SecretScanResult struct {
 	Records       []SecretDocRecord
+	ScannedDirs   []ScannedDir
 	TotalFiles    int
 	TotalMatches  int
 	CriticalCount int
 	HighCount     int
 	Summary       string
+	LogFilePath   string
 }
