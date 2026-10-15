@@ -73,7 +73,7 @@ type ScanResult struct {
         Bang5 []malware.MalwareRecord       `json:"bang5"`
         Bang6 []secretscan.SecretDocRecord  `json:"bang6"`
         Stats ScanStats                     `json:"stats"`
-	ScannedDirs []secretscan.ScannedDir `json:"scanned_dirs"`
+        ScannedDirs []secretscan.ScannedDir `json:"scanned_dirs"`
 }
 
 // ScanStats là số liệu tóm tắt để hiển thị trên dashboard
@@ -187,32 +187,60 @@ func (a *App) ScanAll() (*ScanResult, error) {
         }
 
         wg.Add(6)
-        go scanGroup(&wg, "license", "✓ Hoàn tất quét bản quyền", 30, func() error {
+        go scanGroup(&wg, "license", "✓ Hoàn tất quét bản quyền", 25, func() error {
                 out.Bang1, _ = license.ScanAll(dataAssets)
                 return nil
         })
-        go scanGroup(&wg, "network", "✓ Hoàn tất quét mạng", 45, func() error {
+        go scanGroup(&wg, "network", "✓ Hoàn tất quét mạng", 40, func() error {
                 out.Bang2, _ = network.ScanAll(dataAssets)
                 return nil
         })
-        go scanGroup(&wg, "hardware", "✓ Hoàn tất kiểm kê card mạng", 60, func() error {
+        go scanGroup(&wg, "hardware", "✓ Hoàn tất kiểm kê card mạng", 50, func() error {
                 out.Bang3, _ = hardware.ScanNIC()
                 return nil
         })
-        go scanGroup(&wg, "peripheral", "✓ Hoàn tất quét USB", 75, func() error {
+        go scanGroup(&wg, "peripheral", "✓ Hoàn tất quét USB", 60, func() error {
                 out.Bang4, _ = hardware.ScanPeripherals(dataAssets)
                 return nil
         })
-        go scanGroup(&wg, "malware", "✓ Hoàn tất giám định mã độc", 85, func() error {
+        go scanGroup(&wg, "malware", "✓ Hoàn tất giám định mã độc", 70, func() error {
                 out.Bang5, _ = malware.ScanAll(dataAssets)
                 return nil
         })
-        go scanGroup(&wg, "secretdoc", "✓ Hoân tất rà quét văn bản Mật", 95, func() error {
-                secretResult := secretscan.ScanSecretDocs()
-                out.Bang6 = secretResult.Records
-		out.ScannedDirs = secretResult.ScannedDirs
-                return nil
-        })
+        // secretdoc: timeout riêng 300s (quét toàn bộ ổ đĩa cần thời gian)
+        go func() {
+                defer wg.Done()
+                defer func() {
+                        if r := recover(); r != nil {
+                                a.writeAuditLog("PANIC", "Nhóm secretdoc panic: "+fmt.Sprintf("%v", r))
+                        }
+                }()
+                a.emitProgress("secretdoc", "Đang rà quét văn bản Mật (quét toàn bộ ổ đĩa, có thể mất 1-3 phút)...", 80)
+                done := make(chan struct{})
+                go func() {
+                        defer close(done)
+                        defer func() {
+                                if r := recover(); r != nil {
+                                        a.writeAuditLog("PANIC_INNER", "secretdoc inner panic: "+fmt.Sprintf("%v", r))
+                                }
+                        }()
+                        secretResult := secretscan.ScanSecretDocs()
+                        out.Bang6 = secretResult.Records
+                        out.ScannedDirs = secretResult.ScannedDirs
+                }()
+                select {
+                case <-done:
+                        a.emitProgress("secretdoc_done", "✓ Hoàn tất rà quét văn bản Mật", 95)
+                case <-time.After(300 * time.Second):
+                        a.emitProgress("secretdoc_timeout", "⚠ Rà quét văn bản Mật timeout (300s), vẫn chờ...", 95)
+                        select {
+                        case <-done:
+                                a.emitProgress("secretdoc_done", "✓ Hoàn tất rà quét văn bản Mật (chậm)", 95)
+                        case <-time.After(120 * time.Second):
+                                a.emitProgress("secretdoc_timeout", "⚠ Rà quét văn bản Mật bị bỏ qua", 95)
+                        }
+                }
+        }()
         wg.Wait()
 
         // Đếm Critical docs
