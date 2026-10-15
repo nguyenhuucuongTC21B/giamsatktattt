@@ -3,385 +3,401 @@
 package secretscan
 
 import (
-	"archive/zip"
-	"fmt"
-	"io"
-	"os"
-	"path/filepath"
-	"regexp"
-	"strings"
-
+        "archive/zip"
+        "fmt"
+        "io"
+        "os"
+        "path/filepath"
+        "regexp"
+        "strings"
 )
 
-// ScanSecretDocs rà quét sâu văn bản Word/PDF trong:
-//   - Desktop, Documents, Downloads của user
-//   - Ổ USB / ổ ngoài (D:, E:, F:...)
-//
-// Đọc nội dung file, tìm từ khóa "Mật", "Bí mật", "Tuyệt mật"
+// ScanSecretDocs rà quét sâu văn bản Word/PDF trên TOÀN BỘ ổ đĩa
+// Quét: C:\, D:\, E:\, F:\... (tất cả ổ đĩa có tồn tại)
+// Bỏ qua thư mục hệ thống (Windows, Program Files, $Recycle.Bin...)
+// Có ghi log debug vào file để troubleshoot
 func ScanSecretDocs() SecretScanResult {
-	result := SecretScanResult{}
+        result := SecretScanResult{}
 
-	up := os.Getenv("USERPROFILE")
-	if up == "" {
-		return result
-	}
+        up := os.Getenv("USERPROFILE")
+        if up == "" {
+                up = `C:\Users\Default`
+        }
 
-	// Danh sách thư mục cần quét
-	scanDirs := []struct {
-		Path  string
-		Label string
-	}{
-		{filepath.Join(up, "Desktop"), "Desktop"},
-		{filepath.Join(up, "Documents"), "Documents"},
-		{filepath.Join(up, "Downloads"), "Downloads"},
-	}
+        // Danh sách ổ đĩa cần quét - TẤT CẢ ổ từ C: đến Z:
+        var scanRoots []struct {
+                Path  string
+                Label string
+        }
 
-	// Thêm ổ USB/ổ ngoài
-	for c := 'D'; c <= 'Z'; c++ {
-		p := string(c) + `:\`
-		if _, err := os.Stat(p); err == nil {
-			scanDirs = append(scanDirs, struct{ Path, Label string }{p, "USB " + string(c) + ":"})
-		}
-	}
+        for c := 'C'; c <= 'Z'; c++ {
+                p := string(c) + `:\`
+                if _, err := os.Stat(p); err == nil {
+                        label := "Ổ " + string(c) + ":"
+                        scanRoots = append(scanRoots, struct{ Path, Label string }{p, label})
+                }
+        }
 
-	// Giới hạn tổng số file quét
-	maxFiles := 500
-	fileCount := 0
+        // Ghi log debug
+        logFile := filepath.Join(up, ".bcy-vks", "logs", "secretscan.log")
+        os.MkdirAll(filepath.Dir(logFile), 0755)
+        debugLog, _ := os.Create(logFile)
+        if debugLog != nil {
+                defer debugLog.Close()
+                fmt.Fprintf(debugLog, "=== SecretScan Start ===\n")
+                fmt.Fprintf(debugLog, "USERPROFILE: %s\n", up)
+                for _, d := range scanRoots {
+                        fmt.Fprintf(debugLog, "Scan root: %s (exists: %v)\n", d.Path, dirExists(d.Path))
+                }
+        }
 
-	// Quét từng thư mục
-	for _, dir := range scanDirs {
-		filepath.WalkDir(dir.Path, func(p string, d os.DirEntry, err error) error {
-			if err != nil || d == nil {
-				return nil
-			}
+        maxFiles := 2000 // Tăng lên 2000 file
+        fileCount := 0
 
-			// Bỏ qua thư mục hệ thống
-			if d.IsDir() {
-				lower := strings.ToLower(p)
-				skipDirs := []string{"windows", "program files", "programdata",
-					"appdata", "$recycle.bin", "system volume", "temp"}
-				for _, sd := range skipDirs {
-					if strings.Contains(lower, sd) {
-						return filepath.SkipDir
-					}
-				}
-				return nil
-			}
+        // Danh sách thư mục hệ thống cần BỎ QUA (không quét nội dung)
+        skipDirs := []string{
+                "windows", "program files", "program files (x86)", "programdata",
+                "$recycle.bin", "system volume information", "temp",
+                "appdata", "node_modules", ".git", "__pycache__",
+                "drivers", "driverstore", "servicing", "installer",
+                "assembly", "winsxs", "softwaredistribution",
+                "drivercache", "prefetch", "logs", "debug",
+                "minidump", "microsoft.net", "internet explorer",
+        }
 
-			if fileCount >= maxFiles {
-				return filepath.SkipDir
-			}
+        for _, root := range scanRoots {
+                if debugLog != nil {
+                        fmt.Fprintf(debugLog, "\n=== Quét ổ: %s ===\n", root.Path)
+                }
 
-			ext := strings.ToLower(filepath.Ext(p))
-			if !isScannableFile(ext) {
-				return nil
-			}
+                filepath.WalkDir(root.Path, func(p string, d os.DirEntry, err error) error {
+                        if err != nil || d == nil {
+                                return nil
+                        }
 
-			info, err := d.Info()
-			if err != nil {
-				return nil
-			}
-			if info.Size() > 10*1024*1024 {
-				return nil
-			}
+                        // Bỏ qua thư mục hệ thống
+                        if d.IsDir() {
+                                lower := strings.ToLower(p)
+                                for _, sd := range skipDirs {
+                                        if strings.Contains(lower, sd) {
+                                                if debugLog != nil {
+                                                        fmt.Fprintf(debugLog, "SKIP dir: %s (matches: %s)\n", p, sd)
+                                                }
+                                                return filepath.SkipDir
+                                        }
+                                }
+                                return nil
+                        }
 
-			fileCount++
-			result.TotalFiles++
+                        if fileCount >= maxFiles {
+                                return filepath.SkipDir
+                        }
 
-			// Đọc nội dung file - có recover
-			var content string
-			func() {
-				defer func() { recover() }()
-				content = extractFileContent(p, ext)
-			}()
-			if content == "" {
-				return nil
-			}
+                        ext := strings.ToLower(filepath.Ext(p))
+                        if !isScannableFile(ext) {
+                                return nil
+                        }
 
-			// Tìm từ khóa Mật
-			classification, matched, count, snippet := MatchKeywords(content)
-			if classification == "" {
-				return nil
-			}
+                        info, err := d.Info()
+                        if err != nil {
+                                return nil
+                        }
+                        if info.Size() > 10*1024*1024 {
+                                return nil
+                        }
 
-			rec := SecretDocRecord{
-				FilePath:        p,
-				FileName:        filepath.Base(p),
-				FileType:        ext,
-				FileSize:        info.Size(),
-				ModifiedDate:    info.ModTime().Format("2006-01-02 15:04:05"),
-				Classification:  classification,
-				MatchedKeywords: strings.Join(matched, ", "),
-				KeywordCount:    count,
-				Snippet:         snippet,
-				Location:        dir.Label,
-				DangerLevel:     CalcDangerLevel(classification, count),
-			}
+                        fileCount++
+                        result.TotalFiles++
 
-			result.Records = append(result.Records, rec)
-			result.TotalMatches++
+                        if debugLog != nil {
+                                fmt.Fprintf(debugLog, "Scanning: %s (%d bytes, ext=%s)\n", p, info.Size(), ext)
+                        }
 
-			switch rec.DangerLevel {
-			case "CRITICAL":
-				result.CriticalCount++
-			case "HIGH":
-				result.HighCount++
-			}
+                        // Đọc nội dung - có recover
+                        var content string
+                        func() {
+                                defer func() {
+                                        if r := recover(); r != nil {
+                                                if debugLog != nil {
+                                                        fmt.Fprintf(debugLog, "  PANIC reading: %v\n", r)
+                                                }
+                                        }
+                                }()
+                                content = extractFileContent(p, ext)
+                        }()
 
-			return nil
-		})
-	}
+                        if content == "" {
+                                return nil
+                        }
 
-	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("Quét %d file, phát hiện %d văn bản Mật/Bí mật",
-		result.TotalFiles, result.TotalMatches))
-	if result.CriticalCount > 0 {
-		sb.WriteString(fmt.Sprintf(" | ⚠ %d CRITICAL", result.CriticalCount))
-	}
-	if result.HighCount > 0 {
-		sb.WriteString(fmt.Sprintf(" | %d HIGH", result.HighCount))
-	}
-	result.Summary = sb.String()
+                        // Tìm từ khóa Mật
+                        classification, matched, count, snippet := MatchKeywords(content)
+                        if classification == "" {
+                                return nil
+                        }
 
-	return result
+                        if debugLog != nil {
+                                fmt.Fprintf(debugLog, "  ✅ FOUND: classification=%s, keywords=%v, count=%d\n",
+                                        classification, matched, count)
+                        }
+
+                        // Xác định vị trí file
+                        location := root.Label
+                        // Nếu file nằm trong user profile, ghi rõ
+                        if strings.HasPrefix(strings.ToLower(p), strings.ToLower(up)) {
+                                rel, _ := filepath.Rel(up, p)
+                                dirName := filepath.Dir(rel)
+                                if dirName == "Desktop" || dirName == "Documents" || dirName == "Downloads" {
+                                        location = dirName
+                                }
+                        }
+
+                        rec := SecretDocRecord{
+                                FilePath:        p,
+                                FileName:        filepath.Base(p),
+                                FileType:        ext,
+                                FileSize:        info.Size(),
+                                ModifiedDate:    info.ModTime().Format("2006-01-02 15:04:05"),
+                                Classification:  classification,
+                                MatchedKeywords: strings.Join(matched, ", "),
+                                KeywordCount:    count,
+                                Snippet:         snippet,
+                                Location:        location,
+                                DangerLevel:     CalcDangerLevel(classification, count),
+                        }
+
+                        result.Records = append(result.Records, rec)
+                        result.TotalMatches++
+
+                        switch rec.DangerLevel {
+                        case "CRITICAL":
+                                result.CriticalCount++
+                        case "HIGH":
+                                result.HighCount++
+                        }
+
+                        return nil
+                })
+        }
+
+        var sb strings.Builder
+        sb.WriteString(fmt.Sprintf("Quét %d file trên %d ổ đĩa, phát hiện %d văn bản Mật/Bí mật",
+                result.TotalFiles, len(scanRoots), result.TotalMatches))
+        if result.CriticalCount > 0 {
+                sb.WriteString(fmt.Sprintf(" | ⚠ %d CRITICAL", result.CriticalCount))
+        }
+        if result.HighCount > 0 {
+                sb.WriteString(fmt.Sprintf(" | %d HIGH", result.HighCount))
+        }
+        result.Summary = sb.String()
+
+        if debugLog != nil {
+                fmt.Fprintf(debugLog, "\n=== SecretScan Done: %d files scanned, %d matches ===\n",
+                        result.TotalFiles, result.TotalMatches)
+        }
+
+        return result
+}
+
+func dirExists(path string) bool {
+        info, err := os.Stat(path)
+        return err == nil && info.IsDir()
 }
 
 // isScannableFile kiểm tra phần mở rộng
 func isScannableFile(ext string) bool {
-	switch ext {
-	case ".docx", ".doc", ".xlsx", ".xlsm", ".pptx", ".ppt":
-		return true
-	case ".pdf":
-		return true
-	case ".txt", ".csv", ".rtf":
-		return true
-	}
-	return false
+        switch ext {
+        case ".docx", ".doc", ".xlsx", ".xlsm", ".pptx", ".ppt":
+                return true
+        case ".pdf":
+                return true
+        case ".txt", ".csv", ".rtf":
+                return true
+        }
+        return false
 }
 
 // extractFileContent trích nội dung text từ file
 func extractFileContent(path, ext string) string {
-	switch ext {
-	case ".docx", ".xlsx", ".xlsm", ".pptx":
-		return extractFromOfficeXML(path)
-	case ".doc", ".ppt":
-		return extractFromBinary(path)
-	case ".pdf":
-		return extractFromPDF(path)
-	case ".txt", ".csv", ".rtf":
-		data, err := os.ReadFile(path)
-		if err != nil {
-			return ""
-		}
-		return string(data)
-	}
-	return ""
+        switch ext {
+        case ".docx", ".xlsx", ".xlsm", ".pptx":
+                return extractFromOfficeXML(path)
+        case ".doc", ".ppt":
+                return extractFromBinary(path)
+        case ".pdf":
+                return extractFromPDF(path)
+        case ".txt", ".csv", ".rtf":
+                data, err := os.ReadFile(path)
+                if err != nil {
+                        return ""
+                }
+                return string(data)
+        }
+        return ""
 }
 
 // extractFromOfficeXML đọc .docx/.xlsx/.pptx (ZIP chứa XML)
 func extractFromOfficeXML(path string) string {
-	zr, err := zip.OpenReader(path)
-	if err != nil {
-		return ""
-	}
-	defer zr.Close()
+        zr, err := zip.OpenReader(path)
+        if err != nil {
+                return ""
+        }
+        defer zr.Close()
 
-	var sb strings.Builder
-	for _, f := range zr.File {
-		if !strings.HasSuffix(f.Name, ".xml") {
-			continue
-		}
-		// Đọc TẤT CẢ file XML trong ZIP (không lọc quá chặt)
-		// Vì nội dung text có thể nằm trong nhiều file khác nhau
-		rc, err := f.Open()
-		if err != nil {
-			continue
-		}
-		data, _ := io.ReadAll(rc)
-		rc.Close()
-		text := extractTextFromXML(string(data))
-		if text != "" {
-			sb.WriteString(text + " ")
-		}
-	}
-	return sb.String()
+        var sb strings.Builder
+        for _, f := range zr.File {
+                if !strings.HasSuffix(f.Name, ".xml") {
+                        continue
+                }
+                rc, err := f.Open()
+                if err != nil {
+                        continue
+                }
+                data, _ := io.ReadAll(rc)
+                rc.Close()
+                text := extractTextFromXML(string(data))
+                if text != "" {
+                        sb.WriteString(text + " ")
+                }
+        }
+        return sb.String()
 }
 
-// extractTextFromXML trích text thuần từ XML
-// Hỗ trợ UTF-8 (tiếng Việt có dấu)
+// extractTextFromXML trích text thuần từ XML - hỗ trợ UTF-8
 func extractTextFromXML(xml string) string {
-	// Phương án 1: <w:t>...</w:t> (Word)
-	re1 := regexp.MustCompile(`<w:t[^>]*>([^<]+)</w:t>`)
-	matches1 := re1.FindAllStringSubmatch(xml, -1)
-	var parts []string
-	for _, m := range matches1 {
-		if len(m) > 1 {
-			parts = append(parts, m[1])
-		}
-	}
+        var parts []string
 
-	// Phương án 2: <a:t>...</a:t> (PowerPoint)
-	if len(parts) == 0 {
-		re2 := regexp.MustCompile(`<a:t[^>]*>([^<]+)</a:t>`)
-		matches2 := re2.FindAllStringSubmatch(xml, -1)
-		for _, m := range matches2 {
-			if len(m) > 1 {
-				parts = append(parts, m[1])
-			}
-		}
-	}
+        // <w:t>...</w:t> (Word)
+        re1 := regexp.MustCompile(`<w:t[^>]*>([^<]+)</w:t>`)
+        for _, m := range re1.FindAllStringSubmatch(xml, -1) {
+                if len(m) > 1 {
+                        parts = append(parts, m[1])
+                }
+        }
 
-	// Phương án 3: <text:p> hoặc <text:s> (Excel/LibreOffice)
-	if len(parts) == 0 {
-		re3 := regexp.MustCompile(`<(?:text:p|text:s|text:a)[^>]*>([^<]+)</`)
-		matches3 := re3.FindAllStringSubmatch(xml, -1)
-		for _, m := range matches3 {
-			if len(m) > 1 {
-				parts = append(parts, m[1])
-			}
-		}
-	}
+        // <a:t>...</a:t> (PowerPoint)
+        if len(parts) == 0 {
+                re2 := regexp.MustCompile(`<a:t[^>]*>([^<]+)</a:t>`)
+                for _, m := range re2.FindAllStringSubmatch(xml, -1) {
+                        if len(m) > 1 {
+                                parts = append(parts, m[1])
+                        }
+                }
+        }
 
-	// Phương án 4: Lấy TẤT CẢ text giữa > và < (catch-all)
-	// Hỗ trợ UTF-8: lấy mọi ký tự không phải < >
-	if len(parts) == 0 {
-		re4 := regexp.MustCompile(`>([^<]{2,})<`)
-		matches4 := re4.FindAllStringSubmatch(xml, -1)
-		for _, m := range matches4 {
-			if len(m) > 1 {
-				s := strings.TrimSpace(m[1])
-				if len(s) > 2 {
-					parts = append(parts, s)
-				}
-			}
-		}
-	}
+        // Catch-all: >([^<]{2,})< - lấy mọi text
+        if len(parts) == 0 {
+                re4 := regexp.MustCompile(`>([^<]{2,})<`)
+                for _, m := range re4.FindAllStringSubmatch(xml, -1) {
+                        if len(m) > 1 {
+                                s := strings.TrimSpace(m[1])
+                                if len(s) > 2 {
+                                        parts = append(parts, s)
+                                }
+                        }
+                }
+        }
 
-	return strings.Join(parts, " ")
+        return strings.Join(parts, " ")
 }
 
 // extractFromBinary đọc thô binary (.doc/.ppt cũ)
-// Hỗ trợ cả UTF-16LE (Windows) và UTF-8
 func extractFromBinary(path string) string {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return ""
-	}
+        data, err := os.ReadFile(path)
+        if err != nil {
+                return ""
+        }
 
-	var sb strings.Builder
+        var sb strings.Builder
 
-	// Phương án 1: Trích ASCII text (ký tự 0x20-0x7E liên tục >=4 ký tự)
-	re1 := regexp.MustCompile(`[\x20-\x7E]{4,}`)
-	matches1 := re1.FindAllString(string(data), -1)
-	for _, m := range matches1 {
-		if len(m) > 10 {
-			sb.WriteString(string(m) + " ")
-		}
-	}
+        // ASCII text
+        re1 := regexp.MustCompile(`[\x20-\x7E]{4,}`)
+        for _, m := range re1.FindAllString(string(data), -1) {
+                if len(m) > 10 {
+                        sb.WriteString(string(m) + " ")
+                }
+        }
 
-	// Phương án 2: Trích UTF-16LE text (byte pair 0x00 + ASCII)
-	// .doc cũ thường lưu text UTF-16LE
-	i := 0
-	for i+1 < len(data) {
-		// Tìm chuỗi UTF-16LE: ASCII char + 0x00 liên tục
-		if data[i] >= 0x20 && data[i] < 0x7F && data[i+1] == 0x00 {
-			start := i
-			for i+1 < len(data) && data[i] >= 0x20 && data[i] < 0x7F && data[i+1] == 0x00 {
-				i += 2
-			}
-			if i-start >= 8 { // ít nhất 4 ký tự
-				// Decode UTF-16LE
-				chars := []byte{}
-				for j := start; j < i; j += 2 {
-					chars = append(chars, data[j])
-				}
-				sb.WriteString(string(chars) + " ")
-			}
-		} else {
-			i++
-		}
-	}
+        // UTF-16LE text
+        i := 0
+        for i+1 < len(data) {
+                if data[i] >= 0x20 && data[i] < 0x7F && data[i+1] == 0x00 {
+                        start := i
+                        for i+1 < len(data) && data[i] >= 0x20 && data[i] < 0x7F && data[i+1] == 0x00 {
+                                i += 2
+                        }
+                        if i-start >= 8 {
+                                chars := []byte{}
+                                for j := start; j < i; j += 2 {
+                                        chars = append(chars, data[j])
+                                }
+                                sb.WriteString(string(chars) + " ")
+                        }
+                } else {
+                        i++
+                }
+        }
 
-	return sb.String()
+        return sb.String()
 }
 
-// extractFromPDF trích text từ PDF
-// Hỗ trợ: text trong parentheses, hex string, và text stream
+// extractFromPDF trích text từ PDF - 4 phương án
 func extractFromPDF(path string) string {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return ""
-	}
-	content := string(data)
-	var sb strings.Builder
+        data, err := os.ReadFile(path)
+        if err != nil {
+                return ""
+        }
+        content := string(data)
+        var sb strings.Builder
 
-	// Phương án 1: Text trong parentheses (PDF operator Tj/TJ)
-	// Hỗ trợ UTF-8 (bao gồm tiếng Việt có dấu)
-	re1 := regexp.MustCompile(`\(([^)]{2,})\)`)
-	matches1 := re1.FindAllStringSubmatch(content, -1)
-	for _, m := range matches1 {
-		if len(m) > 1 {
-			// Unescape PDF string
-			text := strings.ReplaceAll(m[1], "\\(", "(")
-			text = strings.ReplaceAll(text, "\\)", ")")
-			text = strings.ReplaceAll(text, "\\n", "\n")
-			sb.WriteString(text + " ")
-		}
-	}
+        // 1. Text trong parentheses
+        re1 := regexp.MustCompile(`\(([^)]{2,})\)`)
+        for _, m := range re1.FindAllStringSubmatch(content, -1) {
+                if len(m) > 1 {
+                        text := strings.ReplaceAll(m[1], "\\(", "(")
+                        text = strings.ReplaceAll(text, "\\)", ")")
+                        sb.WriteString(text + " ")
+                }
+        }
 
-	// Phương án 2: Hex string trong <...>
-	re2 := regexp.MustCompile(`<([0-9A-Fa-f]{4,})>`)
-	matches2 := re2.FindAllStringSubmatch(content, -1)
-	for _, m := range matches2 {
-		if len(m) > 1 && len(m[1]) > 8 {
-			hex := m[1]
-			text := ""
-			for i := 0; i+1 < len(hex); i += 2 {
-				c := hexVal(hex[i])*16 + hexVal(hex[i+1])
-				if c >= 32 && c < 127 {
-					text += string(rune(c))
-				}
-			}
-			if len(text) > 5 {
-				sb.WriteString(text + " ")
-			}
-		}
-	}
+        // 2. Hex string
+        re2 := regexp.MustCompile(`<([0-9A-Fa-f]{4,})>`)
+        for _, m := range re2.FindAllStringSubmatch(content, -1) {
+                if len(m) > 1 && len(m[1]) > 8 {
+                        hex := m[1]
+                        text := ""
+                        for i := 0; i+1 < len(hex); i += 2 {
+                                c := hexVal(hex[i])*16 + hexVal(hex[i+1])
+                                if c >= 32 && c < 127 {
+                                        text += string(rune(c))
+                                }
+                        }
+                        if len(text) > 5 {
+                                sb.WriteString(text + " ")
+                        }
+                }
+        }
 
-	// Phương án 3: text stream - tìm "BT ... ET" blocks
-	// và trích text sau Tj/TJ operator
-	re3 := regexp.MustCompile(`([^\s()<>]{2,})\s*Tj`)
-	matches3 := re3.FindAllStringSubmatch(content, -1)
-	for _, m := range matches3 {
-		if len(m) > 1 {
-			sb.WriteString(m[1] + " ")
-		}
-	}
+        // 3. UTF-8 text có dấu (byte 0xC0-0xFF = multi-byte UTF-8)
+        re3 := regexp.MustCompile(`[\xC0-\xFF\x20-\x7E]{4,}`)
+        for _, m := range re3.FindAllString(content, -1) {
+                if len(m) > 10 {
+                        sb.WriteString(m + " ")
+                }
+        }
 
-	// Phương án 4: Tìm text có dấu tiếng Việt trực tiếp trong stream
-	// PDF hiện đại lưu text UTF-8 trực tiếp
-	re4 := regexp.MustCompile(`[\xC0-\xFF\x20-\x7E]{4,}`)
-	matches4 := re4.FindAllString(content, -1)
-	for _, m := range matches4 {
-		if len(m) > 10 {
-			sb.WriteString(m + " ")
-		}
-	}
-
-	return sb.String()
+        return sb.String()
 }
 
 func hexVal(c byte) int {
-	if c >= '0' && c <= '9' {
-		return int(c - '0')
-	}
-	if c >= 'a' && c <= 'f' {
-		return int(c-'a') + 10
-	}
-	if c >= 'A' && c <= 'F' {
-		return int(c-'A') + 10
-	}
-	return 0
+        if c >= '0' && c <= '9' {
+                return int(c - '0')
+        }
+        if c >= 'a' && c <= 'f' {
+                return int(c-'a') + 10
+        }
+        if c >= 'A' && c <= 'F' {
+                return int(c-'A') + 10
+        }
+        return 0
 }
-
-// GetLastModifiedDate đọc ngày sửa đổi
