@@ -63,6 +63,11 @@ func ScanSecretDocs() SecretScanResult {
                 "assembly", "winsxs", "softwaredistribution",
                 "drivercache", "prefetch", "logs", "debug",
                 "minidump", "microsoft.net", "internet explorer",
+                "python312", "python311", "python310", "site-packages",
+                "lib", "include", "share", "scripts",
+                "matplotlib", "numpy", "pandas", "scipy",
+                "cryptography", "openssl", "tests", "test",
+                "go", "bin", "pkg", "src", "cache",
         }
 
         for _, root := range scanRoots {
