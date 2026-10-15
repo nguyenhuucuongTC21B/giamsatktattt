@@ -54,20 +54,21 @@ func ScanSecretDocs() SecretScanResult {
         maxFiles := 2000 // Tăng lên 2000 file
         fileCount := 0
 
-        // Danh sách thư mục hệ thống cần BỎ QUA (không quét nội dung)
+        // Danh sách thư mục hệ thống cần BỎ QUA - CHỈ dùng từ khóa DÀI, CHÍNH XÁC
+        // KHÔNG dùng từ khóa ngắn như "go", "lib", "bin", "src" vì match nhầm thư mục tiếng Việt
         skipDirs := []string{
                 "windows", "program files", "program files (x86)", "programdata",
-                "$recycle.bin", "system volume information", "temp",
+                "$recycle.bin", "system volume information",
                 "appdata", "node_modules", ".git", "__pycache__",
-                "drivers", "driverstore", "servicing", "installer",
-                "assembly", "winsxs", "softwaredistribution",
-                "drivercache", "prefetch", "logs", "debug",
+                "driverstore", "servicing", "softwaredistribution",
+                "drivercache", "prefetch",
                 "minidump", "microsoft.net", "internet explorer",
                 "python312", "python311", "python310", "site-packages",
-                "lib", "include", "share", "scripts",
                 "matplotlib", "numpy", "pandas", "scipy",
-                "cryptography", "openssl", "tests", "test",
-                "go", "bin", "pkg", "src", "cache",
+                "cryptography", "openssl",
+                ".nuget", ".ollama", ".vscode", ".templateengine",
+                ".cache", "__pycache__",
+                "winsxs", "assembly",
         }
 
         for _, root := range scanRoots {
